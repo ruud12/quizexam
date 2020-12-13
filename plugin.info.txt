@@ -1,0 +1,7 @@
+base   quizexam
+author Ruud Habing
+email  ruud.habing@lagersmit.com
+date   2020-12-13
+name   Quiz plugin for DokuWiki
+desc   Quiz module for Dokuwiki
+url    https://github.com/ruud12/quizexam.git
