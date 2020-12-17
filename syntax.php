@@ -74,14 +74,19 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 		foreach($r as $q) {
 			preg_match("/=+([\w\s\-\?]+)=+/", $q, $matched);
 			preg_match("/\s*type\s+(.*)\s*/", $q, $type);
-			if ($matched) {
+			preg_match("/\s*quizid\s+(.*)\s*/", $q, $quizid);
+			if ($quizid) {
+				$data['quizid'] = $quizid[1];
+			} elseif ($matched) {
 				$questions++;
-				$data['questions'][$questions] = array("question" => trim($matched[1]), "answers" => [], "rightanswers" => [], "type" => "");
+				$data['questions'][$questions] = array("question" => trim($matched[1]), "answers" => [], "type" => "", "answered_correctly" => 0, "answered_wrongly" => 0);
 			} elseif ($type) {
 				$data['questions'][$questions]['type'] = trim($type[1]);
 			} else {
 				preg_match("/\s*\*(.*)/", $q, $not_correct);
 				preg_match("/\s*\*\s*V\s+(.*)/", $q, $correct);
+
+
 				if ($correct) {
 					$data['questions'][$questions]['answers'][] = array("value" => trim($correct[1]), "correct" => true);
 				} elseif ($not_correct) {
@@ -90,6 +95,10 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 			}
 
 		}
+
+
+
+			
 
 
 		return $data;
@@ -109,26 +118,134 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 	public function render($mode, Doku_Renderer $renderer, $data)
 	{     
-		if ($mode == 'xhtml') {
+		$anything_answered = false;
 
+		for ($i=1; $i<count($data['questions'])+1; $i++) {
+			$posted_answers = $_GET['question'.$i];
+			if ($posted_answers) {
+				$anything_answered = true;
+			} else {
+				$posted_answers = array();
+			}
 
-			foreach($data['questions'] as $count => $question) {
-				$renderer->doc .= "<b>Question: ".$question['question']."</b><br>";
+			if (!is_array($posted_answers)) {
+				$posted_answers = array(trim($posted_answers));
+			}
+			$data['questions'][$i]['answered'] = $posted_answers;
 
-				if ($question['type'] == 'text') {
-					$renderer->doc .= "<input type='text'><br>";
-				} elseif ($question['type'] == 'single') {
-					foreach($question['answers'] as $option) {
-						$renderer->doc .= "<input type='radio' id='".$question['question']."' value='".$option['value']."'>";
-						$renderer->doc .= "<label for='".$question['question']."'> ".$option['value']."</label><br>";
+			
+
+			if (count($posted_answers) > 0) {
+				if ($data['questions'][$i]['type'] == 'text') {
+					$value = $data['questions'][$i]['answers'][0]['value'];
+					if (in_array($value, $posted_answers)) {
+						$data['questions'][$i]['answers'][0]['answered_correctly'] = true;
+						$data['questions'][$i]['answered_correctly']++;
+					} else {
+						$data['questions'][$i]['answers'][0]['answered_wrongly'] = true;
+						$data['questions'][$i]['answered_wrongly']++;
+					}
+				} else {
+					foreach($data['questions'][$i]['answers'] as $k => $a) {
+						if ($a["correct"]) {
+							if (in_array($a["value"], $posted_answers)) {
+								$data['questions'][$i]['answers'][$k]['answered_correctly'] = true;
+								$data['questions'][$i]['answered_correctly']++;
+							} else {
+								$data['questions'][$i]['answers'][$k]['answered_wrongly'] = true;
+								$data['questions'][$i]['answered_wrongly']++;
+							}
+						} elseif (!$a["correct"] && in_array($a["value"], $posted_answers)) {
+							$data['questions'][$i]['answers'][$k]['answered_wrongly'] = true;
+							$data['questions'][$i]['answered_wrongly']++;
+						}
 					}
 				}
 			}
+		}
+
+
+		if ($mode == 'xhtml') {
+
+			if ($data['quizid']) {
+				$renderer->doc .= "<form action='".$_GET['ID']."' name='".str_replace(" ","",$data['quizid'])."' method='GET'>";
+			} else {
+				$renderer->doc .= "<form action='".$_GET['ID']."' method='GET'>";
+			}
+
+			$renderer->doc .= "<input type='hidden' name='id' value='".$_GET['id']."'>";
+
+			foreach($data['questions'] as $q_count => $question) {
+				$renderer->doc .= "<b>Question: ".$question['question']."</b><br>";
+
+
+				if ($anything_answered) {
+					if ($question['answered_correctly'] > 0 && $question['answered_wrongly'] == 0) {
+						$renderer->doc .= "<span style='color:green'>Goed beantwoord</span><br>";
+					} elseif ($question['answered_correctly'] == 0 && $question['answered_wrongly'] == 0) {
+						$renderer->doc .= "<span style='color:orange'>Niet beantwoord</span><br>";
+					} else {
+						$renderer->doc .= "<span style='color:red'>Fout beantwoord</span><br>";
+					}
+				}
+
+
+				if ($question['type'] == 'text') {
+					$renderer->doc .= "<input type='text' name='question".$q_count."' value='".$question['answered'][0]."'><br>";
+				} elseif ($question['type'] == 'single') {
+					foreach($question['answers'] as $count => $option) {
+						if (in_array($option['value'], $question['answered'])) {
+							$checked = "checked='checked'";
+						} else {
+							$checked = "";
+						}
+
+						if ($anything_answered) {
+							if ($option['answered_correctly'] || $option['correct']) {
+								$color = "style='color:green;font-weight:bold'";
+							} elseif ($option['answered_wrongly']) {
+								$color = "style='color:red'";
+							} else {
+								$color = "";
+							}
+						}
+							
+						$renderer->doc .= "<input ".$checked." type='radio' id='question_".$q_count."_".$count."' name='question".$q_count."' value='".$option['value']."'>";
+						$renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
+					}
+				} elseif ($question['type'] == 'multi') {
+					foreach($question['answers'] as $count => $option) {
+
+						if (in_array($option['value'], $question['answered'])) {
+							$checked = "checked='checked'";
+						} else {
+							$checked = "";
+						}
+
+
+						if ($anything_answered) {
+							if ($option['answered_correctly'] || $option['correct']) {
+								$color = "style='color:green;font-weight:bold'";
+							} elseif ($option['answered_wrongly']) {
+								$color = "style='color:red'";
+							} else {
+								$color = "";
+							}
+						}
+						$renderer->doc .= "<input ".$checked." type='checkbox' id='question_".$q_count."_".$count."' name='question".$q_count."[]' value='".$option['value']."'>";
+						$renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
+					}
+
+				}
+				$renderer->doc .= "<br>";
+			}
+
+			$renderer->doc .= "<input type='submit' value='Submit'>";
+			$renderer->doc .= "</form>";
+
 			print("<pre>");
 			print_r($data['questions']);
 			print("</pre>");
-
-
 				
 
 			return true;
