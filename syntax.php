@@ -72,7 +72,7 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 		$questions = 0;
 
 		foreach($r as $q) {
-			preg_match("/=+([\w\s\-\?]+)=+/", $q, $matched);
+			preg_match("/=+([\w\s\-\?\:]+)=+/", $q, $matched);
 			preg_match("/\s*type\s+(.*)\s*/", $q, $type);
 			preg_match("/\s*quizid\s+(.*)\s*/", $q, $quizid);
 			if ($quizid) {
@@ -119,6 +119,7 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 	public function render($mode, Doku_Renderer $renderer, $data)
 	{     
 		$anything_answered = false;
+		$total_correctly_answered = 0;
 
 		for ($i=1; $i<count($data['questions'])+1; $i++) {
 			$posted_answers = $_GET['question'.$i];
@@ -141,25 +142,32 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 					if (in_array($value, $posted_answers)) {
 						$data['questions'][$i]['answers'][0]['answered_correctly'] = true;
 						$data['questions'][$i]['answered_correctly']++;
+						$total_correctly_answered++;
 					} else {
 						$data['questions'][$i]['answers'][0]['answered_wrongly'] = true;
 						$data['questions'][$i]['answered_wrongly']++;
 					}
 				} else {
+					$temp_correct = 0;
+					$temp_wrong = 0;
 					foreach($data['questions'][$i]['answers'] as $k => $a) {
 						if ($a["correct"]) {
 							if (in_array($a["value"], $posted_answers)) {
 								$data['questions'][$i]['answers'][$k]['answered_correctly'] = true;
 								$data['questions'][$i]['answered_correctly']++;
+								$temp_correct++;
 							} else {
 								$data['questions'][$i]['answers'][$k]['answered_wrongly'] = true;
 								$data['questions'][$i]['answered_wrongly']++;
+								$temp_wrong++;
 							}
 						} elseif (!$a["correct"] && in_array($a["value"], $posted_answers)) {
 							$data['questions'][$i]['answers'][$k]['answered_wrongly'] = true;
 							$data['questions'][$i]['answered_wrongly']++;
+							$temp_wrong++;
 						}
 					}
+					$total_correctly_answered += $temp_correct / ($temp_wrong + $temp_correct);
 				}
 			}
 		}
@@ -173,10 +181,21 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 				$renderer->doc .= "<form action='".$_GET['ID']."' method='GET'>";
 			}
 
+			if ($anything_answered) {
+				$score = round(($total_correctly_answered/count($data['questions']))*100,1);
+
+				if ($score > 50) {
+					$color = 'lightgreen';
+				} else {
+					$color = 'red';
+				}
+				$renderer->doc .= "<div style='background-color:".$color."'>Score: ".$score."%</div><br><br>";
+			}	
+
 			$renderer->doc .= "<input type='hidden' name='id' value='".$_GET['id']."'>";
 
 			foreach($data['questions'] as $q_count => $question) {
-				$renderer->doc .= "<b>Question: ".$question['question']."</b><br>";
+				$renderer->doc .= "<b>".$q_count.": ".$question['question']."</b> ";
 
 
 				if ($anything_answered) {
@@ -187,6 +206,8 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 					} else {
 						$renderer->doc .= "<span style='color:red'>Fout beantwoord</span><br>";
 					}
+				} else {
+					$renderer->doc .= "<br>";
 				}
 
 
@@ -243,9 +264,9 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 			$renderer->doc .= "<input type='submit' value='Submit'>";
 			$renderer->doc .= "</form>";
 
-			print("<pre>");
-			print_r($data['questions']);
-			print("</pre>");
+			//print("<pre>");
+			//print_r($data['questions']);
+			//print("</pre>");
 				
 
 			return true;
