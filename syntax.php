@@ -91,8 +91,10 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
                 if ($correct) {
+                    $correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $correct[1]);
                     $data['questions'][$questions]['answers'][] = array("value" => trim($correct[1]), "correct" => true);
                 } elseif ($not_correct) {
+                    $not_correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $not_correct[1]);
                     $data['questions'][$questions]['answers'][] = array("value" => trim($not_correct[1]), "correct" => false);
                 }
             }
@@ -288,7 +290,9 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
                                 $color = "";
                             }
 
-                            $renderer->doc .= "<input ".$checked." type='radio' id='question_".$q_count."_".$count."' name='question".$q_count."' value='".$option['value']."'>";
+                            $val = preg_replace('/[^A-Za-z0-9\- ]/', '', $option['value']);
+
+                            $renderer->doc .= "<input ".$checked." type='radio' id='question_".$q_count."_".$count."' name='question".$q_count."' value='".$val."'>";
                             $renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
                         }
                     } elseif ($question['type'] == 'multi') {
