@@ -213,14 +213,18 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
                 $renderer->doc .= "<b>Previous scores for ".$user.":</b><br>";
 
                 $renderer->doc .= "<ul>";
+                $dates = array_keys($export_data[$user][$_GET['id']]);
+                krsort($dates);
                 $max = 5;
-                foreach($export_data[$user][$_GET['id']] as $date => $score) {
+
+                /* foreach($export_data[$user][$_GET['id']] as $date => $score) { */
+                foreach($dates as $date) {
                     if ($max <= 0) {
                         break;
                     }
                     $max--;
 
-                    $renderer->doc .= "<li>".$date.": ".$score."%</li>";
+                    $renderer->doc .= "<li>".$date.": ".$export_data[$user][$_GET['id']][$date]."%</li>";
                 }
                 $renderer->doc .= "</ul>";
 
