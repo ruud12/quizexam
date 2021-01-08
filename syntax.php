@@ -76,7 +76,7 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
         foreach($r as $q) {
 
             preg_match("/=+(.+)=+/", $q, $matched);
-            preg_match("/\s*type\s+(.*)\s*/", $q, $type);
+            preg_match("/^type\s+(.*)\s*/", $q, $type);
 
 
             if ($question_found && $type) {
@@ -91,10 +91,10 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
                 if ($correct) {
-                    $correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $correct[1]);
+                    /* $correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $correct[1]); */
                     $data['questions'][$questions]['answers'][] = array("value" => trim($correct[1]), "correct" => true);
                 } elseif ($not_correct) {
-                    $not_correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $not_correct[1]);
+                    /* $not_correct[1] = preg_replace('/[^A-Za-z0-9\- ]/', '', $not_correct[1]); */
                     $data['questions'][$questions]['answers'][] = array("value" => trim($not_correct[1]), "correct" => false);
                 }
             }
@@ -136,7 +136,7 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
         for ($i=1; $i<count($data['questions'])+1; $i++) {
             $posted_answers = $_GET['question'.$i];
-            if ($posted_answers) {
+            if ($posted_answers == "0" || $posted_answers) {
                 $anything_answered = true;
             } else {
                 $posted_answers = array();
@@ -165,7 +165,8 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
                     $temp_wrong = 0;
                     foreach($data['questions'][$i]['answers'] as $k => $a) {
                         if ($a["correct"]) {
-                            if (in_array($a["value"], $posted_answers)) {
+                            /* if (in_array($a["value"], $posted_answers)) { */
+                            if (in_array($k, $posted_answers)) {
                                 $data['questions'][$i]['answers'][$k]['answered_correctly'] = true;
                                 $data['questions'][$i]['answered_correctly']++;
                                 $temp_correct++;
@@ -174,7 +175,8 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
                                 $data['questions'][$i]['answered_wrongly']++;
                                 $temp_wrong++;
                             }
-                        } elseif (!$a["correct"] && in_array($a["value"], $posted_answers)) {
+                        /* } elseif (!$a["correct"] && in_array($a["value"], $posted_answers)) { */
+                        } elseif (!$a["correct"] && in_array($k, $posted_answers)) {
                             $data['questions'][$i]['answers'][$k]['answered_wrongly'] = true;
                             $data['questions'][$i]['answered_wrongly']++;
                             $temp_wrong++;
@@ -211,7 +213,13 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
                 $renderer->doc .= "<b>Previous scores for ".$user.":</b><br>";
 
                 $renderer->doc .= "<ul>";
+                $max = 5;
                 foreach($export_data[$user][$_GET['id']] as $date => $score) {
+                    if ($max <= 0) {
+                        break;
+                    }
+                    $max--;
+
                     $renderer->doc .= "<li>".$date.": ".$score."%</li>";
                 }
                 $renderer->doc .= "</ul>";
@@ -220,7 +228,7 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
             if ($anything_answered) {
-                $renderer->doc .= "<a href='?id=".$_GET['id']."&start_quiz=yes'>Clear answers</a><br>";
+                $renderer->doc .= "<a href='?id=".$_GET['id']."'>Clear answers</a><br>";
                 $score = round(($total_correctly_answered/count($data['questions']))*100,1);
 
                 if ($score > 60) {
@@ -237,114 +245,101 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
 
+            foreach($data['questions'] as $q_count => $question) {
+                $renderer->doc .= "<b>".$q_count.": ".$question['question']."</b> ";
 
-            if ($_GET['start_quiz'] == 'yes') {
+                $not_answered = false;
 
-
-                foreach($data['questions'] as $q_count => $question) {
-                    $renderer->doc .= "<b>".$q_count.": ".$question['question']."</b> ";
-
-                    $not_answered = false;
-
-                    if ($anything_answered) {
-                        if ($question['answered_correctly'] > 0 && $question['answered_wrongly'] == 0) {
-                            $renderer->doc .= "<span style='color:green'>Goed beantwoord</span><br>";
-                        } elseif ($question['answered_correctly'] == 0 && $question['answered_wrongly'] == 0) {
-                            $renderer->doc .= "<span style='color:orange'>Niet beantwoord</span><br>";
-                            $not_answered = true;
-                        } else {
-                            $renderer->doc .= "<span style='color:red'>Fout beantwoord</span><br>";
-                        }
+                if ($anything_answered) {
+                    if ($question['answered_correctly'] > 0 && $question['answered_wrongly'] == 0) {
+                        $renderer->doc .= "<span style='color:green'>Goed beantwoord</span><br>";
+                    } elseif ($question['answered_correctly'] == 0 && $question['answered_wrongly'] == 0) {
+                        $renderer->doc .= "<span style='color:orange'>Niet beantwoord</span><br>";
+                        $not_answered = true;
                     } else {
-                        $renderer->doc .= "<br>";
+                        $renderer->doc .= "<span style='color:red'>Fout beantwoord</span><br>";
                     }
-
-
-                    if ($question['type'] == 'text') {
-                        $renderer->doc .= "<input type='text' name='question".$q_count."' value='".$question['answered'][0]."'><br>";
-                    } elseif ($question['type'] == 'single') {
-                        $answers_random = array_keys($question['answers']);
-
-                        if (!$anything_answered) {
-                            shuffle($answers_random);
-                        }
-
-                        foreach($answers_random as $count) {
-                            $option = $question['answers'][$count];
-                            //foreach($question['answers'] as $count => $option) {
-                            if (in_array($option['value'], $question['answered'])) {
-                                $checked = "checked='checked'";
-                            } else {
-                                $checked = "";
-                            }
-
-                            if ($anything_answered && !$not_answered) {
-                                if ($option['answered_correctly'] || $option['correct']) {
-                                    $color = "style='color:green;font-weight:bold'";
-                                } elseif ($option['answered_wrongly']) {
-                                    $color = "style='color:red'";
-                                } else {
-                                    $color = "";
-                                }
-                            } else {
-                                $color = "";
-                            }
-
-                            $val = preg_replace('/[^A-Za-z0-9\- ]/', '', $option['value']);
-
-                            $renderer->doc .= "<input ".$checked." type='radio' id='question_".$q_count."_".$count."' name='question".$q_count."' value='".$val."'>";
-                            $renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
-                        }
-                    } elseif ($question['type'] == 'multi') {
-                        $answers_random = array_keys($question['answers']);
-
-                        if (!$anything_answered) {
-                            shuffle($answers_random);
-                        }
-                        foreach($answers_random as $count) {
-                            $option = $question['answers'][$count];
-                            //foreach($question['answers'] as $count => $option) {
-
-                            if (in_array($option['value'], $question['answered'])) {
-                                $checked = "checked='checked'";
-                            } else {
-                                $checked = "";
-                            }
-
-
-                            if ($anything_answered && !$not_answered) {
-                                if ($option['answered_correctly'] || $option['correct']) {
-                                    $color = "style='color:green;font-weight:bold'";
-                                } elseif ($option['answered_wrongly']) {
-                                    $color = "style='color:red'";
-                                } else {
-                                    $color = "";
-                                }
-                            } else {
-                                $color = "";
-                            }
-                            $renderer->doc .= "<input ".$checked." type='checkbox' id='question_".$q_count."_".$count."' name='question".$q_count."[]' value='".$option['value']."'>";
-                            $renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
-                        }
-
-                    }
+                } else {
                     $renderer->doc .= "<br>";
                 }
-                $renderer->doc .= "<input type='hidden' name='start_quiz' value='yes'>";
-                $renderer->doc .= "<input type='submit' value='Submit'>";
 
-            } else {
-                $renderer->doc .= "<input type='hidden' name='start_quiz' value='yes'>";
-                $renderer->doc .= "<input type='submit' value='Start quiz'>";
 
+                if ($question['type'] == 'text') {
+                    $renderer->doc .= "<input type='text' name='question".$q_count."' value='".$question['answered'][0]."'><br>";
+                } elseif ($question['type'] == 'single') {
+                    $answers_random = array_keys($question['answers']);
+
+                    if (!$anything_answered) {
+                        shuffle($answers_random);
+                    }
+
+                    foreach($answers_random as $count) {
+                        $option = $question['answers'][$count];
+                        if (in_array($count, $question['answered'])) {
+                            $checked = "checked='checked'";
+                        } else {
+                            $checked = "";
+                        }
+
+                        if ($anything_answered && !$not_answered) {
+                            if ($option['answered_correctly'] || $option['correct']) {
+                                $color = "style='color:green;font-weight:bold'";
+                            } elseif ($option['answered_wrongly']) {
+                                $color = "style='color:red'";
+                            } else {
+                                $color = "";
+                            }
+                        } else {
+                            $color = "";
+                        }
+
+                        $val = $count;
+
+                        $renderer->doc .= "<input ".$checked." type='radio' id='question_".$q_count."_".$count."' name='question".$q_count."' value='".$val."'>";
+                        $renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
+                    }
+                } elseif ($question['type'] == 'multi') {
+                    $answers_random = array_keys($question['answers']);
+
+                    if (!$anything_answered) {
+                        shuffle($answers_random);
+                    }
+                    foreach($answers_random as $count) {
+                        $option = $question['answers'][$count];
+
+                        if (in_array($count, $question['answered'])) {
+                            $checked = "checked='checked'";
+                        } else {
+                            $checked = "";
+                        }
+
+
+                        if ($anything_answered && !$not_answered) {
+                            if ($option['answered_correctly'] || $option['correct']) {
+                                $color = "style='color:green;font-weight:bold'";
+                            } elseif ($option['answered_wrongly']) {
+                                $color = "style='color:red'";
+                            } else {
+                                $color = "";
+                            }
+                        } else {
+                            $color = "";
+                        }
+
+                        $val = $count;
+
+                        $renderer->doc .= "<input ".$checked." type='checkbox' id='question_".$q_count."_".$count."' name='question".$q_count."[]' value='".$val."'>";
+                        $renderer->doc .= "<label ".$color." for='question_".$q_count."_".$count."'> ".$option['value']."</label><br>";
+                    }
+
+                }
+                $renderer->doc .= "<br>";
             }
+            $renderer->doc .= "<input type='submit' value='Submit answers'>";
+
 
             $renderer->doc .= "</form>";
 
-            //print("<pre>");
-            //
-            //print_r($data['questions']);
-            //print("</pre>");
 
 
             return true;
