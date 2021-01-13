@@ -250,7 +250,14 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
             foreach($data['questions'] as $q_count => $question) {
-                $renderer->doc .= "<b>".$q_count.": ".$question['question']."</b> ";
+                if ($question['type'] == 'multi') {
+                    $type_question = " (multiple answers possible)";
+                } else {
+                    $type_question = "";
+                }
+
+
+                $renderer->doc .= "<b>".$q_count.": ".$question['question']."</b> ".$type_question;
 
                 $not_answered = false;
 
