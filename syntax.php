@@ -206,41 +206,37 @@ class syntax_plugin_quizexam extends DokuWiki_Syntax_Plugin
 
 
                 $renderer->doc .= "<b>Previous scores:</b><br>";
-
                 $renderer->doc .= "<ul>";
-                /* $dates = array_keys($export_data[$user][$_GET['id']]); */
-                /* krsort($dates); */
-                /* $max = 5; */
 
                 ksort($export_data);
 
-                foreach($export_data as $user => $user_data) {
+                foreach($export_data as $username => $user_data) {
+
                     if (array_key_exists($_GET['id'], $user_data)) {
                         $dates = array_keys($user_data[$_GET['id']]);
                         if (count($dates) > 0) {
                             krsort($dates);
                             $date = $dates[0];
-                            $renderer->doc .= "<li>".$user.": ".$user_data[$_GET['id']][$date]."% (".$date.")</li>";
+                            $renderer->doc .= "<li>".$username.": ".$user_data[$_GET['id']][$date]."% (".$date.")</li>";
                         }
                     }
                 }
 
                 $renderer->doc .= "</ul>";
 
-            }
 
 
-            if ($anything_answered) {
-                $renderer->doc .= "<a href='?id=".$_GET['id']."'>Clear answers</a><br>";
-                $score = round(($total_correctly_answered/count($data['questions']))*100,1);
+                if ($anything_answered) {
+                    $renderer->doc .= "<a href='?id=".$_GET['id']."'>Clear answers</a><br>";
+                    $score = round(($total_correctly_answered/count($data['questions']))*100,1);
 
-                if ($score > 60) {
-                    msg("Succes, you have completed the test with a score of ".$score."%", $lvl=1);
-                } else {
-                    msg("You have failed the test with a score of ".$score."%", $lvl=-1);
-                }
+                    if ($score > 60) {
+                        msg("Succes, you have completed the test with a score of ".$score."%", $lvl=1);
+                    } else {
+                        msg("You have failed the test with a score of ".$score."%", $lvl=-1);
+                    }
 
-                if ($user) {
+
                     $export_data[$user][$_GET['id']][date("Y/m/d H:i:s")] = $score;
                     file_put_contents($file, serialize($export_data));
                 }
